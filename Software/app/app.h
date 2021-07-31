@@ -33,16 +33,12 @@
 /**
  * GNSE Libraries
  */
-#include "GNSE_bsp.h"
-#include "SHTC3.h"
-#include "MX25R16.h"
-#include "LIS2DH12.h"
-#include "BUZZER.h"
+#include "NUCLEO_bsp.h"
 
 /**
  * Application helpers
  */
 #include "app_conf.h"
-#include "GNSE_tracer.h"
+//#include "NUCLEO_tracer.h"
 
 #endif /* APP_H */
