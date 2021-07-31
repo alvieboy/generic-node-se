@@ -14,6 +14,7 @@
 #-------------------
 cmake_minimum_required(VERSION 3.11.1)
 
+set(CMAKE_VERBOSE_MAKEFILE ON)
 if(NOT CMAKE_TOOLCHAIN_FILE)
     message(FATAL_ERROR "[ERRR] CMAKE_TOOLCHAIN_FILE not specified")
 endif()
@@ -37,6 +38,7 @@ project(main)
 set (APP_LIST
 "app_template"
 "basic"
+"basic_nucleo"
 "basic_lorawan"
 "basic_bootloader"
 "basic_freertos"
