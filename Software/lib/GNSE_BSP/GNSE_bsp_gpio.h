@@ -207,6 +207,7 @@ int32_t GNSE_BSP_LED_On(Led_TypeDef Led);
 int32_t GNSE_BSP_LED_Off(Led_TypeDef Led);
 int32_t GNSE_BSP_LED_Toggle(Led_TypeDef Led);
 int32_t GNSE_BSP_LED_GetState(Led_TypeDef Led);
+int32_t GNSE_BSP_LED_Analog(Led_TypeDef Led);
 
 int32_t GNSE_BSP_PB_Init(Button_TypeDef Button, ButtonMode_TypeDef ButtonMode);
 int32_t GNSE_BSP_PB_DeInit(Button_TypeDef Button);

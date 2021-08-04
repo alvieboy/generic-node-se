@@ -27,6 +27,8 @@
 #include "lora_info.h"
 #include "sensors.h"
 
+static uint32_t sensors_tx_dutycycle = 10000;
+
 /**
   * @brief LoRa State Machine states
   */
@@ -57,11 +59,25 @@ static void SendTxData(void);
 static void OnTxTimerEvent(void *context);
 
 /**
-  * @brief  LED timer callback function
+  * @brief  TX LED timer callback function
   * @param  LED context
   * @return none
   */
-static void OnTimerLedEvent(void *context);
+static void OnTxTimerLedEvent(void *context);
+
+/**
+  * @brief  RX LED timer callback function
+  * @param  LED context
+  * @return none
+  */
+static void OnRxTimerLedEvent(void *context);
+
+/**
+  * @brief  Unhandled RX LED timer callback function
+  * @param  LED context
+  * @return none
+  */
+static void OnUnhandledRxTimerLedEvent(void *context);
 
 /**
   * @brief  join event callback function
@@ -138,9 +154,11 @@ static TxEventType_t EventType = TX_ON_TIMER;
 static UTIL_TIMER_Object_t TxTimer;
 
 /**
-  * @brief Timer to handle the application Tx Led to toggle
+  * @brief Timers to handle the application Join, Tx, and Rx Led to toggle
   */
 static UTIL_TIMER_Object_t TxLedTimer;
+static UTIL_TIMER_Object_t RxLedTimer;
+static UTIL_TIMER_Object_t UnhandledRxLedTimer;
 
 void LoRaWAN_Init(void)
 {
@@ -163,7 +181,7 @@ void LoRaWAN_Init(void)
   {
     /* send every time timer elapses */
     UTIL_TIMER_Create(&TxTimer, 0xFFFFFFFFU, UTIL_TIMER_ONESHOT, OnTxTimerEvent, NULL);
-    UTIL_TIMER_SetPeriod(&TxTimer, SENSORS_TX_DUTYCYCLE);
+    UTIL_TIMER_SetPeriod(&TxTimer, sensors_tx_dutycycle);
     UTIL_TIMER_Start(&TxTimer);
   }
   else
@@ -183,9 +201,40 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 
 static void OnRxData(LmHandlerAppData_t *appData, LmHandlerRxParams_t *params)
 {
-if ((appData != NULL) && (params != NULL))
+  uint32_t rxbuffer = 0;
+  bool rxsuccess = 0;
+  if ((appData != NULL) && (params != NULL))
   {
-    APP_LOG(ADV_TRACER_TS_OFF, ADV_TRACER_VLEVEL_M, "\r\n Received Unhandled Downlink on F_PORT:%d \r\n", appData->Port);
+    APP_LOG(ADV_TRACER_TS_OFF, ADV_TRACER_VLEVEL_M, "\r\n Received Downlink on F_PORT:%d \r\n", appData->Port);
+    if (appData->Port == SENSORS_DOWNLINK_RX_PORT)
+    {
+      if (appData->BufferSize <= sizeof(rxbuffer))
+      {
+        for (int i = appData->BufferSize - 1; i >= 0; i--)
+        {
+            rxbuffer += appData->Buffer[i] << (8 * (appData->BufferSize - 1 - i));
+        }
+        if (rxbuffer <= SENSORS_RX_MAX_S && rxbuffer >= SENSORS_RX_MIN_S)
+        {
+          /* time data has to be converted from s to ms */
+          APP_LOG(ADV_TRACER_TS_OFF, ADV_TRACER_VLEVEL_M, "\r\n RX time changed to %ld seconds \r\n", rxbuffer);
+          sensors_tx_dutycycle = rxbuffer * 1000;
+          UTIL_TIMER_SetPeriod(&TxTimer, sensors_tx_dutycycle);
+
+          UTIL_TIMER_Create(&RxLedTimer, 0xFFFFFFFFU, UTIL_TIMER_PERIODIC, OnRxTimerLedEvent, NULL);
+          UTIL_TIMER_SetPeriod(&RxLedTimer, SENSORS_LED_RX_PERIOD_MS);
+          UTIL_TIMER_Start(&RxLedTimer);
+
+          rxsuccess = 1;
+        }
+      }
+    }
+  }
+  if (!rxsuccess)
+  {
+    UTIL_TIMER_Create(&UnhandledRxLedTimer, 0xFFFFFFFFU, UTIL_TIMER_PERIODIC, OnUnhandledRxTimerLedEvent, NULL);
+    UTIL_TIMER_SetPeriod(&UnhandledRxLedTimer, SENSORS_LED_UNHANDLED_RX_PERIOD_MS);
+    UTIL_TIMER_Start(&UnhandledRxLedTimer);
   }
 }
 
@@ -203,11 +252,9 @@ static void SendTxData(void)
   AppData.Buffer[3] = (uint8_t)((sensor_data.humidity / 100) >> 8);
   AppData.Buffer[4] = (uint8_t)((sensor_data.humidity / 100) & 0xFF);
 
-  UTIL_TIMER_Create(&TxLedTimer, 0xFFFFFFFFU, UTIL_TIMER_ONESHOT, OnTimerLedEvent, NULL);
+  UTIL_TIMER_Create(&TxLedTimer, 0xFFFFFFFFU, UTIL_TIMER_ONESHOT, OnTxTimerLedEvent, NULL);
   UTIL_TIMER_SetPeriod(&TxLedTimer, 200);
   UTIL_TIMER_Start(&TxLedTimer);
-
-  GNSE_BSP_LED_On(LED_BLUE);
 
   if (LORAMAC_HANDLER_SUCCESS == LmHandlerSend(&AppData, LORAWAN_DEFAULT_CONFIRMED_MSG_STATE, &nextTxIn, false))
   {
@@ -227,9 +274,53 @@ static void OnTxTimerEvent(void *context)
   UTIL_TIMER_Start(&TxTimer);
 }
 
-static void OnTimerLedEvent(void *context)
+static void OnTxTimerLedEvent(void *context)
 {
-  GNSE_BSP_LED_Off(LED_BLUE);
+
+}
+
+static void OnRxTimerLedEvent(void *context)
+{
+  static uint8_t led_counter = 0;
+
+  if (led_counter == 0)
+  {
+    GNSE_BSP_LED_Init(LED_GREEN);
+  }
+  if (led_counter < SENSORS_LED_RX_TOGGLES)
+  {
+    GNSE_BSP_LED_Toggle(LED_GREEN);
+    led_counter++;
+  }
+  else
+  {
+    led_counter = 0;
+    GNSE_BSP_LED_Analog(LED_GREEN);
+    UTIL_TIMER_Stop(&RxLedTimer);
+
+  }
+}
+
+static void OnUnhandledRxTimerLedEvent(void *context)
+{
+  static uint8_t led_counter = 0;
+
+  if (led_counter == 0)
+  {
+    GNSE_BSP_LED_Init(LED_RED);
+  }
+  if (led_counter < SENSORS_LED_UNHANDLED_RX_TOGGLES)
+  {
+    GNSE_BSP_LED_Toggle(LED_RED);
+    led_counter++;
+  }
+  else
+  {
+    led_counter = 0;
+    GNSE_BSP_LED_Analog(LED_RED);
+    UTIL_TIMER_Stop(&UnhandledRxLedTimer);
+
+  }
 }
 
 static void OnTxData(LmHandlerTxParams_t *params)

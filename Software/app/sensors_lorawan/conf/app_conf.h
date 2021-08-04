@@ -36,10 +36,23 @@
  */
 #define SENSORS_PAYLOAD_APP_PORT        2
 
-/*!
- * Defines the application data transmission duty cycle. 10s, value in [ms].
- */
-#define SENSORS_TX_DUTYCYCLE                            10000
+/*! LoRaWAN application port where sensors downlink interval can be changed (via a downlink)
+ *  @note Payload signifies the amount of seconds
+ * */
+#define SENSORS_DOWNLINK_RX_PORT        1
+/* Max time interval of the RX window in seconds (8640 seconds are in one day) */
+#define SENSORS_RX_MAX_S 8640
+/* Min time interval of the RX window in seconds */
+#define SENSORS_RX_MIN_S 5
+
+/**
+  * RX LED definitions
+  */
+#define SENSORS_LED_RX_PERIOD_MS 200
+#define SENSORS_LED_RX_TOGGLES 5
+
+#define SENSORS_LED_UNHANDLED_RX_PERIOD_MS 200
+#define SENSORS_LED_UNHANDLED_RX_TOGGLES 5
 
 /* LoRaWAN v1.0.2 software based OTAA activation information */
 #define APPEUI                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
