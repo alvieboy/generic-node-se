@@ -31,7 +31,15 @@
 
 #include "stm32wlxx_hal.h"
 #include "sensirion_i2c.h"
+#if defined(BOARD) && BOARD==NUCLEO
+#include "NUCLEO_bsp.h"
+#define SENSOR_I2C NUCLEO_BSP_ext_sensor_i2c3
+#define SENSOR_TIMEOUT EXT_SENSOR_I2C3_TIMEOUT
+#else
 #include "GNSE_bsp.h"
+#define SENSOR_I2C GNSE_BSP_sensor_i2c1
+#define SENSOR_TIMEOUT EXT_SENSOR_I2C1_TIMOUT
+#endif
 
 /**
  * Initialize all hard- and software components that are needed for the I2C
@@ -62,8 +70,8 @@ void sensirion_i2c_release(void)
  */
 int8_t sensirion_i2c_read(uint8_t address, uint8_t *data, uint16_t count)
 {
-    return (int8_t)HAL_I2C_Master_Receive(&GNSE_BSP_sensor_i2c1, (uint16_t)(address << 1),
-                                          data, count, SENSOR_I2C1_TIMOUT);
+    return (int8_t)HAL_I2C_Master_Receive(&SENSOR_I2C, (uint16_t)(address << 1),
+                                          data, count, SENSOR_TIMEOUT);
 }
 
 /**
@@ -80,8 +88,8 @@ int8_t sensirion_i2c_read(uint8_t address, uint8_t *data, uint16_t count)
 int8_t sensirion_i2c_write(uint8_t address, const uint8_t *data,
                            uint16_t count)
 {
-    return (int8_t)HAL_I2C_Master_Transmit(&GNSE_BSP_sensor_i2c1, (uint16_t)(address << 1),
-                                           (uint8_t *)data, count, SENSOR_I2C1_TIMOUT);
+    return (int8_t)HAL_I2C_Master_Transmit(&SENSOR_I2C, (uint16_t)(address << 1),
+                                           (uint8_t *)data, count, SENSOR_TIMEOUT);
 }
 
 /**
